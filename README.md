@@ -55,4 +55,5 @@ yaycl_crypt.decrypt_yaml(conf, 'test')
   Anyone with access to a python interpreter that can read your eyaml files has access
   to your secret key.
 
-```
+[![Coverage Status](https://coveralls.io/repos/seandst/yaycl-crypt/badge.svg?branch=master)](https://coveralls.io/r/seandst/yaycl-crypt?branch=master)
+[![Build Status](https://travis-ci.org/seandst/yaycl-crypt.svg?branch=master)](https://travis-ci.org/seandst/yaycl-crypt)
