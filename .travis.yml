@@ -1,7 +1,7 @@
 language: python
 python:
 - "2.7"
-install: pip install -r requirements.txt -r test-requirements.txt python-coveralls
+install: pip install -e . -r requirements.txt -r test-requirements.txt python-coveralls
 script: py.test --cov yaycl_crypt tests/
 after_success:
   - coveralls
