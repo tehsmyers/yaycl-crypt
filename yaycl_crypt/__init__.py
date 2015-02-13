@@ -11,6 +11,10 @@ from Crypto.Cipher import AES
 YamlNames = namedtuple('YamlNames', ['unencrypted', 'encrypted'])
 
 
+class YaycleCryptError(Exception):
+    """Exception type for yaycl_crypt errors"""
+    pass
+
 def _yamls(conf, conf_key):
     # boilerplate for getting yaml and eyaml filenames
     filename_base = os.path.join(conf._yaycl.config_dir, conf_key)
@@ -46,8 +50,7 @@ def decrypt_yaml(conf, conf_key, delete=True):
     yaml_file = _yamls(conf, conf_key)
 
     if os.path.exists(yaml_file.unencrypted):
-        # TODO better splode
-        raise Exception('not gonna delete your unencrypted conf')
+        raise YayclCryptError('Unencrypted conf conf exists; refusing to overwrite it')
 
     conf.save(conf_key)
 
@@ -93,8 +96,7 @@ def crypt_key_hash(conf, data=None):
     elif "YAYCL_CRYPT_KEY_FILE" in os.environ:
         key_file = os.environ["YAYCL_CRYPT_KEY_FILE"]
     else:
-        # TODO: asplode better
-        raise Exception('asplode')
+        raise YayclCryptError('Unable to load key for yaml decryption')
 
     # if data isn't set, key_file is;
     # get the key data to hash from key_file
