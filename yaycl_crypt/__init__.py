@@ -11,9 +11,10 @@ from Crypto.Cipher import AES
 YamlNames = namedtuple('YamlNames', ['unencrypted', 'encrypted'])
 
 
-class YaycleCryptError(Exception):
+class YayclCryptError(Exception):
     """Exception type for yaycl_crypt errors"""
     pass
+
 
 def _yamls(conf, conf_key):
     # boilerplate for getting yaml and eyaml filenames
