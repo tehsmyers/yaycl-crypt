@@ -1,6 +1,6 @@
 # yaycl Encrypted Yaml Support
 
-A (yaycl)[https://github.com/seandst/yaycl] plugin to seamlessly load encypted yamls,
+A [yaycl](https://github.com/seandst/yaycl) plugin to seamlessly load encypted yamls,
 as well as helper methods for encrypting and decrypting yaycl yamls.
 
 # Usage
