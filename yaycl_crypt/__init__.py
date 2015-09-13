@@ -1,5 +1,7 @@
 import hashlib
 import os
+import sys
+import traceback
 import warnings
 from collections import namedtuple
 from cStringIO import StringIO
@@ -153,6 +155,12 @@ def load_yaml(file_path, **options):
     loaded_yaml = lya.AttrDict()
     with open(yaml_file.encrypted) as eyaml:
         decrypted_yaml = cipher.decrypt(eyaml.read())
-    loaded_yaml.update(yaml.load(decrypted_yaml, Loader=lya.OrderedDictYAMLLoader))
+    try:
+        loaded_conf = yaml.load(decrypted_yaml, Loader=lya.OrderedDictYAMLLoader)
+    except Exception:
+        exc = sys.exc_info()
+        msg = '{} when loading {}, yaycl crypt key may be incorrect. Original traceback:\n{}'
+        raise YayclCryptError(msg.format(exc[0], yaml_file.encrypted, traceback.format_exc(exc)))
+    loaded_yaml.update(loaded_conf)
 
     return loaded_yaml

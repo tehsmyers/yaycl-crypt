@@ -10,8 +10,12 @@ import yaycl_crypt
 TEST_KEY = 'test key'
 # hashlib.sha256(str(data).strip()).hexdigest()
 TEST_KEY_HASH = 'fa2bdca424f01f01ffb48df93acc35d439c7fd331a1a7fba6ac2fd83aa9ab31a'
-# An already encrypted yaml
-TEST_ENCRYPTED_YAML = 'YAvSOXMhGTxyhcrYgbag616NR7/NGhu59zInHniDCIU='
+# An already encrypted yaml using TEST_KEY
+# Unencrypted contents: 'test_key: test_value'
+ENCRYPTED_TEST_YAML = 'YAvSOXMhGTxyhcrYgbag616NR7/NGhu59zInHniDCIU='
+# Invalid yaml, meant to trigger an exception in the yaml load step
+# Unencrypted contents: '* This is invalid yaml.'
+BROKEN_TEST_YAML = 'lAhplViEp8juM3/z0arXX+aaxfMJsVIq5/kxKS+1gbs='
 
 
 def delete_path(path):
@@ -46,14 +50,26 @@ def test_conf(conf, tmpdir):
     return yaycl_crypt._yamls(conf.file_path('test'))
 
 
+# Maybe DRY these (encrypted_/broken_test_conf) up?
+
 @pytest.fixture
-def test_encrypted_conf(conf, tmpdir):
+def encrypted_test_conf(conf, tmpdir):
     conf._yaycl.config_dir = tmpdir.strpath
     conf._yaycl.crypt_key = TEST_KEY
     with tmpdir.join('encrypted.eyaml').open('w') as eyaml:
-        eyaml.write(TEST_ENCRYPTED_YAML.decode('base64'))
+        eyaml.write(ENCRYPTED_TEST_YAML.decode('base64'))
     # The conf_key of the new yaml
     return 'encrypted'
+
+
+@pytest.fixture
+def broken_test_conf(conf, tmpdir):
+    conf._yaycl.config_dir = tmpdir.strpath
+    conf._yaycl.crypt_key = TEST_KEY
+    with tmpdir.join('broken.eyaml').open('w') as eyaml:
+        eyaml.write(BROKEN_TEST_YAML.decode('base64'))
+    # The conf_key of the new yaml
+    return 'broken'
 
 
 def test_load_hash_from_nowhere(conf):
@@ -107,14 +123,23 @@ def test_encrypt_decrypt_yaml(request, conf, test_conf, tmpdir):
         yaycl_crypt.decrypt_yaml(conf, 'test')
 
 
-def test_filesystem_decrypt(conf, test_encrypted_conf):
+def test_filesystem_decrypt(conf, encrypted_test_conf):
     # test decryption in isolation to ensure filesystem operations work correctly
     with warnings.catch_warnings(record=True) as caught_warnings:
-        yaycl_crypt.decrypt_yaml(conf, test_encrypted_conf)
+        yaycl_crypt.decrypt_yaml(conf, encrypted_test_conf)
         for warning in caught_warnings:
             assert warning.category is not yaycl_crypt.YayclCryptWarning, \
                 'Unencrypted yaml found while decrypting: {}'.format(warning.message)
-    print conf.encrypted
+    assert conf.encrypted.test_key == 'test value'
+
+
+def test_load_invalid_yaml(conf, broken_test_conf):
+    # loading an invalid yaml should trip a YayclCryptError
+    with pytest.raises(yaycl_crypt.YayclCryptError):
+        # XXX: I would love to assert some things about the exception here, but the py.test
+        # ExceptionInfo object is exploding when I attempt to inspect it. For now, I'll settle
+        # for at least catching the YayclCryptError when loading the broken conf
+        conf[broken_test_conf]
 
 
 def test_yaml_noextension_parse():
