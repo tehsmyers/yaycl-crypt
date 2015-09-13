@@ -24,7 +24,8 @@ conf._yaycl['crypt_key_file'] = '/path/to/a/file/containing/my/secret'
 yaycl_crypt.encrypt_yaml(conf, 'test')
 
 # Encrypted yamls have the extension '.eyaml', and (assuming the crypt key is set)
-# will be loaded just like an unencrypted yaml.
+# will be loaded just like an unencrypted yaml. If the yaml being loaded has no extension,
+# yaycl_crypt will append the extension '.e' to the unencrypted yaml name
 
 # To decrypt:
 yaycl_crypt.decrypt_yaml(conf, 'test')
@@ -39,7 +40,7 @@ yaycl_crypt.decrypt_yaml(conf, 'test')
   and punt to the next `yaycl` loader, which is most likely the default loader. This
   means the unencrypted yaml gets loaded, under the assumption that an unencrypted yaml
   next to an encrypted yaml probably means the unencrypted yaml is being actively edited.
-- If `yaycl_crypt.decrypt_yaml` is called, and an unencrypted yaml already exists, 
+- If `yaycl_crypt.decrypt_yaml` is called, and an unencrypted yaml already exists,
   `yaycl_crypt` will refuse to overwrite the existing unencrypted conf, again under the
   assumption that the unencrypted conf is being actively worked on. If it isn't, the
   simplest way to remove it is likely to encrypt it first to delete the unencrypted file,
