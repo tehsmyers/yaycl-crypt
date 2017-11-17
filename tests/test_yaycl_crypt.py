@@ -1,3 +1,4 @@
+import base64
 import os
 import warnings
 
@@ -12,10 +13,10 @@ TEST_KEY = 'test key'
 TEST_KEY_HASH = 'fa2bdca424f01f01ffb48df93acc35d439c7fd331a1a7fba6ac2fd83aa9ab31a'
 # An already encrypted yaml using TEST_KEY
 # Unencrypted contents: 'test_key: test_value'
-ENCRYPTED_TEST_YAML = 'YAvSOXMhGTxyhcrYgbag616NR7/NGhu59zInHniDCIU='
+ENCRYPTED_TEST_YAML = b'YAvSOXMhGTxyhcrYgbag616NR7/NGhu59zInHniDCIU='
 # Invalid yaml, meant to trigger an exception in the yaml load step
 # Unencrypted contents: '* This is invalid yaml.'
-BROKEN_TEST_YAML = 'lAhplViEp8juM3/z0arXX+aaxfMJsVIq5/kxKS+1gbs='
+BROKEN_TEST_YAML = b'lAhplViEp8juM3/z0arXX+aaxfMJsVIq5/kxKS+1gbs='
 
 
 def delete_path(path):
@@ -56,8 +57,8 @@ def test_conf(conf, tmpdir):
 def encrypted_test_conf(conf, tmpdir):
     conf._yaycl.config_dir = tmpdir.strpath
     conf._yaycl.crypt_key = TEST_KEY
-    with tmpdir.join('encrypted.eyaml').open('w') as eyaml:
-        eyaml.write(ENCRYPTED_TEST_YAML.decode('base64'))
+    with tmpdir.join('encrypted.eyaml').open('wb') as eyaml:
+        eyaml.write(base64.b64decode(ENCRYPTED_TEST_YAML))
     # The conf_key of the new yaml
     return 'encrypted'
 
@@ -66,8 +67,8 @@ def encrypted_test_conf(conf, tmpdir):
 def broken_test_conf(conf, tmpdir):
     conf._yaycl.config_dir = tmpdir.strpath
     conf._yaycl.crypt_key = TEST_KEY
-    with tmpdir.join('broken.eyaml').open('w') as eyaml:
-        eyaml.write(BROKEN_TEST_YAML.decode('base64'))
+    with tmpdir.join('broken.eyaml').open('wb') as eyaml:
+        eyaml.write(base64.b64decode(BROKEN_TEST_YAML))
     # The conf_key of the new yaml
     return 'broken'
 

@@ -4,7 +4,13 @@ import sys
 import traceback
 import warnings
 from collections import namedtuple
-from cStringIO import StringIO
+
+try:
+    # py2
+    from cStringIO import StringIO
+except ImportError:
+    # py3
+    from io import StringIO
 
 import lya
 import yaml
@@ -51,7 +57,7 @@ def encrypt_yaml(conf, conf_key, delete=True):
     del(conf[conf_key])
     conf[conf_key].dump(yaml_output)
     yaml_output.seek(0)
-    with open(yaml_file.encrypted, 'w') as eyaml:
+    with open(yaml_file.encrypted, 'wb') as eyaml:
         output = yaml_output.read()
         # pad the output to match the key len
         output += ' ' * (16 - (len(output) % 16))
@@ -71,7 +77,7 @@ def decrypt_yaml(conf, conf_key, delete=True):
         raise YayclCryptError('Unencrypted conf conf exists; refusing to overwrite it')
 
     # decrypt the target yaml without loading it
-    with open(yaml_file.unencrypted, 'w') as yaml, open(yaml_file.encrypted) as eyaml:
+    with open(yaml_file.unencrypted, 'wb') as yaml, open(yaml_file.encrypted, 'rb') as eyaml:
         yaml.write(cipher.decrypt(eyaml.read()))
 
     # remove the encrypted yaml if it exists
@@ -121,10 +127,14 @@ def crypt_key_hash(data=None, **options):
     # if data isn't set, key_file is;
     # get the key data to hash from key_file
     if not data:
-        with open(str(key_file).strip()) as f:
+        with open(str(key_file).strip(), 'rb') as f:
+            # data is read as bytes
             data = f.read()
+    else:
+        # key data came from string inputs, convert to bytes
+        data = data.encode('utf-8')
 
-    return hashlib.sha256(str(data).strip())
+    return hashlib.sha256(data)
 
 
 def crypt_cipher(data=None, **options):
@@ -153,14 +163,13 @@ def load_yaml(file_path, **options):
 
     # Sanity achieved; attempt decryption
     loaded_yaml = lya.AttrDict()
-    with open(yaml_file.encrypted) as eyaml:
+    with open(yaml_file.encrypted, 'rb') as eyaml:
         decrypted_yaml = cipher.decrypt(eyaml.read())
     try:
         loaded_conf = yaml.load(decrypted_yaml, Loader=lya.OrderedDictYAMLLoader)
-    except Exception:
-        exc = sys.exc_info()
+    except Exception as exc:
         msg = '{} when loading {}, yaycl crypt key may be incorrect. Original traceback:\n{}'
-        raise YayclCryptError(msg.format(exc[0], yaml_file.encrypted, traceback.format_exc(exc)))
+        raise YayclCryptError(msg.format(type(exc), yaml_file.encrypted, exc))
     loaded_yaml.update(loaded_conf)
 
     return loaded_yaml
