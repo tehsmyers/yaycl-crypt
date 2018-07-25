@@ -51,26 +51,23 @@ def test_conf(conf, tmpdir):
     return yaycl_crypt._yamls(conf.file_path('test'))
 
 
-# Maybe DRY these (encrypted_/broken_test_conf) up?
+def _gen_test_conf(test_yaml, conf_key, conf, tmpdir):
+    conf._yaycl.config_dir = tmpdir.strpath
+    conf._yaycl.crypt_key = TEST_KEY
+    with tmpdir.join('{}.eyaml'.format(conf_key)).open('wb') as eyaml:
+        eyaml.write(base64.b64decode(test_yaml))
+    # The conf_key of the new yaml
+    return conf_key
+
 
 @pytest.fixture
 def encrypted_test_conf(conf, tmpdir):
-    conf._yaycl.config_dir = tmpdir.strpath
-    conf._yaycl.crypt_key = TEST_KEY
-    with tmpdir.join('encrypted.eyaml').open('wb') as eyaml:
-        eyaml.write(base64.b64decode(ENCRYPTED_TEST_YAML))
-    # The conf_key of the new yaml
-    return 'encrypted'
+    return _gen_test_conf(ENCRYPTED_TEST_YAML, 'encrypted', conf, tmpdir)
 
 
 @pytest.fixture
 def broken_test_conf(conf, tmpdir):
-    conf._yaycl.config_dir = tmpdir.strpath
-    conf._yaycl.crypt_key = TEST_KEY
-    with tmpdir.join('broken.eyaml').open('wb') as eyaml:
-        eyaml.write(base64.b64decode(BROKEN_TEST_YAML))
-    # The conf_key of the new yaml
-    return 'broken'
+    return _gen_test_conf(BROKEN_TEST_YAML, 'broken', conf, tmpdir)
 
 
 def test_load_hash_from_nowhere(conf):
@@ -90,17 +87,15 @@ def test_load_hash_file_from_conf(conf, tmpdir):
     assert yaycl_crypt.crypt_key_hash(**conf._yaycl).hexdigest() == TEST_KEY_HASH
 
 
-def test_load_hash_from_env(request, conf):
-    os.environ['YAYCL_CRYPT_KEY'] = TEST_KEY
-    request.addfinalizer(lambda: os.environ.pop('YAYCL_CRYPT_KEY'))
+def test_load_hash_from_env(request, mocker, conf):
+    mocker.patch.dict(os.environ, dict(YAYCL_CRYPT_KEY=TEST_KEY))
     assert yaycl_crypt.crypt_key_hash(conf).hexdigest() == TEST_KEY_HASH
 
 
-def test_load_hash_file_from_env(request, conf, tmpdir):
+def test_load_hash_file_from_env(request, mocker, conf, tmpdir):
     key_file = tmpdir.join('key_file')
     key_file.write(TEST_KEY)
-    os.environ['YAYCL_CRYPT_KEY_FILE'] = key_file.strpath
-    request.addfinalizer(lambda: os.environ.pop('YAYCL_CRYPT_KEY_FILE'))
+    mocker.patch.dict(os.environ, dict(YAYCL_CRYPT_KEY_FILE=key_file.strpath))
     assert yaycl_crypt.crypt_key_hash(conf).hexdigest() == TEST_KEY_HASH
 
 
@@ -136,11 +131,9 @@ def test_filesystem_decrypt(conf, encrypted_test_conf):
 
 def test_load_invalid_yaml(conf, broken_test_conf):
     # loading an invalid yaml should trip a YayclCryptError
-    with pytest.raises(yaycl_crypt.YayclCryptError):
-        # XXX: I would love to assert some things about the exception here, but the py.test
-        # ExceptionInfo object is exploding when I attempt to inspect it. For now, I'll settle
-        # for at least catching the YayclCryptError when loading the broken conf
+    with pytest.raises(yaycl_crypt.YayclCryptError) as exc:
         conf[broken_test_conf]
+    assert 'yaycl crypt key may be incorrect' in exc.value.args[0]
 
 
 def test_yaml_noextension_parse():
