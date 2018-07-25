@@ -1,20 +1,14 @@
 import hashlib
 import os
-import sys
-import traceback
 import warnings
 from collections import namedtuple
 
-try:
-    # py2
-    from cStringIO import StringIO
-except ImportError:
-    # py3
-    from io import StringIO
+from io import BytesIO
 
 import lya
 import yaml
-from Crypto.Cipher import AES
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
 
 YamlNames = namedtuple('YamlNames', ['unencrypted', 'encrypted'])
 
@@ -52,7 +46,7 @@ def encrypt_yaml(conf, conf_key, delete=True):
     cipher = crypt_cipher(**conf._yaycl)
 
     # write out the encrypted yaml
-    yaml_output = StringIO()
+    yaml_output = BytesIO()
     # force a reload before encrypting
     del(conf[conf_key])
     conf[conf_key].dump(yaml_output)
@@ -60,8 +54,8 @@ def encrypt_yaml(conf, conf_key, delete=True):
     with open(yaml_file.encrypted, 'wb') as eyaml:
         output = yaml_output.read()
         # pad the output to match the key len
-        output += ' ' * (16 - (len(output) % 16))
-        eyaml.write(cipher.encrypt(output))
+        output += b' ' * (16 - (len(output) % 16))
+        eyaml.write(_encrypt(cipher, output))
 
     # remove the unencrypted yaml if it exists
     if delete and os.path.exists(yaml_file.unencrypted):
@@ -77,8 +71,9 @@ def decrypt_yaml(conf, conf_key, delete=True):
         raise YayclCryptError('Unencrypted conf conf exists; refusing to overwrite it')
 
     # decrypt the target yaml without loading it
-    with open(yaml_file.unencrypted, 'wb') as yaml, open(yaml_file.encrypted, 'rb') as eyaml:
-        yaml.write(cipher.decrypt(eyaml.read()))
+    with open(yaml_file.unencrypted, 'wb') as yaml:
+        with open(yaml_file.encrypted, 'rb') as eyaml:
+            yaml.write(_decrypt(cipher, eyaml.read()))
 
     # remove the encrypted yaml if it exists
     if delete and os.path.exists(yaml_file.encrypted):
@@ -141,7 +136,18 @@ def crypt_cipher(data=None, **options):
     key = crypt_key_hash(data, **options)
     # TODO: cipher should be configurable; just need to come up with a
     # decent way to pull the type and mode out of a config
-    return AES.new(key.digest(), AES.MODE_ECB)
+    backend = default_backend()
+    return Cipher(algorithms.AES(key.digest()), modes.ECB(), backend=backend)
+
+
+def _decrypt(cipher, input):
+    decryptor = cipher.decryptor()
+    return decryptor.update(input) + decryptor.finalize()
+
+
+def _encrypt(cipher, input):
+    encryptor = cipher.encryptor()
+    return encryptor.update(input) + encryptor.finalize()
 
 
 def load_yaml(file_path, **options):
@@ -154,7 +160,7 @@ def load_yaml(file_path, **options):
     # If there's an unencyrpted yaml, issue a warning and bail out
     if os.path.exists(yaml_file.unencrypted):
         warn_msg = ('yaml "{}" and eyaml present for "{}" config. '
-            'Ignoring encrypted yaml.').format(*yaml_file)
+                    'Ignoring encrypted yaml.').format(*yaml_file)
         warnings.warn(warn_msg, YayclCryptWarning)
         return
 
@@ -164,7 +170,7 @@ def load_yaml(file_path, **options):
     # Sanity achieved; attempt decryption
     loaded_yaml = lya.AttrDict()
     with open(yaml_file.encrypted, 'rb') as eyaml:
-        decrypted_yaml = cipher.decrypt(eyaml.read())
+        decrypted_yaml = _decrypt(cipher, eyaml.read())
     try:
         loaded_conf = yaml.load(decrypted_yaml, Loader=lya.OrderedDictYAMLLoader)
     except Exception as exc:
